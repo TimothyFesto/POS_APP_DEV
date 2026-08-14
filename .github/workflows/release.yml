@@ -10,86 +10,62 @@ permissions:
 
 jobs:
   build-mac:
-    name: Build macOS Universal
     runs-on: macos-latest
-
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
 
-      - name: Build macOS Universal
-        run: npm run dist:mac:universal
+      - run: npm run dist:mac:universal
 
-      - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: macOS-universal
-          path: |
-            dist/*.dmg
-            dist/*.zip
-            dist/latest-mac.yml
+          name: macos
+          path: release/*
 
   build-windows:
-    name: Build Windows
     runs-on: windows-latest
-
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
 
-      - name: Build Windows
-        run: npm run dist:win
+      - run: npm run dist:win
 
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: Windows
-          path: |
-            dist/*.exe
-            dist/latest.yml
+          name: windows
+          path: release/*
 
   release:
-    name: Create GitHub Release
     needs:
       - build-mac
       - build-windows
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download macOS artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: macOS-universal
-          path: release/mac
+          name: macos
+          path: artifacts
 
-      - name: Download Windows artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: Windows
-          path: release/windows
+          name: windows
+          path: artifacts
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            release/mac/*
-            release/windows/*
+          files: artifacts/**/*
           generate_release_notes: true
