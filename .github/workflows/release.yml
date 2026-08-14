@@ -1,3 +1,4 @@
+
 name: Build and Release M Generation II POS
 
 on:
@@ -10,62 +11,103 @@ permissions:
 
 jobs:
   build-mac:
+    name: Build macOS
     runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-      - run: npm run dist:mac:universal
+      - name: Build macOS Universal
+        run: npm run dist:mac:universal
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload macOS build
+        uses: actions/upload-artifact@v4
         with:
-          name: macos
+          name: macos-build
           path: release/*
 
   build-windows:
+    name: Build Windows
     runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-      - run: npm run dist:win
+      - name: Build Windows
+        run: npm run dist:win
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
         with:
-          name: windows
+          name: windows-build
           path: release/*
 
   release:
+    name: Create GitHub Release
     needs:
       - build-mac
       - build-windows
+
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download macOS build
+        uses: actions/download-artifact@v4
         with:
-          name: macos
-          path: artifacts
+          name: macos-build
+          path: release
 
-      - uses: actions/download-artifact@v4
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
         with:
-          name: windows
-          path: artifacts
+          name: windows-build
+          path: release
+
+      - name: List release files
+        run: |
+          echo "Files going into GitHub Release:"
+          find release -type f -maxdepth 2 -print
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*
+          tag_name: ${{ github.ref_name }}
+          name: M Generation II POS ${{ github.ref_name }}
+          body: |
+            M Generation II POS ${{ github.ref_name }}
+
+            Automatic release containing:
+            - macOS Universal installer
+            - Windows installer
+            - Electron auto-update metadata
+          draft: false
+          prerelease: false
           generate_release_notes: true
+          files: |
+            release/*.dmg
+            release/*.exe
+            release/*.blockmap
+            release/latest-mac.yml
+            release/latest.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
