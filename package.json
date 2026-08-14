@@ -80,8 +80,10 @@
       "darkModeSupport": true
     },
     "publish": {
-      "provider": "generic",
-      "url": "https://YOUR-UPDATE-SERVER.example.com/m-generation-ii-pos/"
+      "provider": "github",
+      "owner": "TimothyFesto",
+      "repo": "POS_APP_DEV",
+      "releaseType": "release"
     }
   }
 }
