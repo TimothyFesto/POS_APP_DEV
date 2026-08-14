@@ -28,7 +28,8 @@ jobs:
         run: npm ci
 
       - name: Build macOS Universal
-        run: npm run dist:mac:universal
+        run: npm run build && npx electron-builder --mac dmg --universal --publish never
+
 
       - name: Upload macOS build
         uses: actions/upload-artifact@v4
@@ -54,7 +55,8 @@ jobs:
         run: npm ci
 
       - name: Build Windows
-        run: npm run dist:win
+        run: npm run build && npx electron-builder --win nsis --publish never
+
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
