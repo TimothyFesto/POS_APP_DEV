@@ -1,6 +1,6 @@
 {
   "name": "m-generation-ii-pos",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "M Generation II Co. Ltd hotel and restaurant point-of-sale application",
   "main": "electron/main.cjs",
   "author": "M Generation II Co. Ltd",
