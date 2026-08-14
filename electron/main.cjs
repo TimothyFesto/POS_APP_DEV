@@ -7,17 +7,18 @@ let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch { autoUpdater = null; }
 
 const isDev = !app.isPackaged;
-const UPDATE_URL = process.env.MGEN_POS_UPDATE_URL || '';
+const UPDATE_OWNER = 'TimothyFesto';
+const UPDATE_REPO = 'POS_APP_DEV';
 
 function sendUpdateStatus(data) {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('updates:status', data);
 }
 
 function configureUpdater() {
-  if (!autoUpdater || !UPDATE_URL || isDev) return;
+  if (!autoUpdater || isDev) return;
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.setFeedURL({ provider: 'generic', url: UPDATE_URL.replace(/\/$/, '') + '/' });
+  autoUpdater.setFeedURL({ provider: 'github', owner: UPDATE_OWNER, repo: UPDATE_REPO, releaseType: 'release' });
   autoUpdater.on('checking-for-update', () => sendUpdateStatus({ state: 'checking' }));
   autoUpdater.on('update-available', (info) => sendUpdateStatus({ state: 'available', version: info.version }));
   autoUpdater.on('update-not-available', () => sendUpdateStatus({ state: 'up-to-date' }));
@@ -39,8 +40,8 @@ function configureUpdater() {
 }
 
 async function checkForUpdates(interactive = false) {
-  if (!autoUpdater || !UPDATE_URL || isDev) {
-    const message = isDev ? 'Update checking is disabled during development.' : 'No update server has been configured yet.';
+  if (!autoUpdater || isDev) {
+    const message = isDev ? 'Update checking is disabled during development.' : 'Automatic updates are unavailable.';
     sendUpdateStatus({ state: 'disabled', message });
     return { state: 'disabled', message };
   }
