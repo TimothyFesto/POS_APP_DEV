@@ -28,7 +28,7 @@ jobs:
         run: npm ci
 
       - name: Build macOS Universal
-        run: npm run build && npx electron-builder --mac dmg --universal --publish never
+        run: npm run build && npx electron-builder --mac dmg zip --universal --publish never
 
 
       - name: Upload macOS build
@@ -107,6 +107,7 @@ jobs:
           generate_release_notes: true
           files: |
             release/*.dmg
+            release/*.zip
             release/*.exe
             release/*.blockmap
             release/latest-mac.yml
