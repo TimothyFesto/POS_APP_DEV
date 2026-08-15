@@ -1001,14 +1001,7 @@ function SettingsScreen({ settings, setSettings, tables, setTables, rooms, setRo
       message: "",
     }));
 
-    const result = await window.posAPI?.updates?.check?.();
-
-    if (result) {
-      setUpdateState((prev) => ({
-        ...prev,
-        ...result,
-      }));
-    }
+    await window.posAPI?.updates?.check?.();
   };
   const downloadUpdate = async () => {
     setUpdateState((prev) => ({
