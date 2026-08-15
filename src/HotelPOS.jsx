@@ -939,13 +939,35 @@ function RoomFolio({ stay, room, settings, goBack, addNote, checkOutStay, voidSt
 
 function SettingsScreen({ settings, setSettings, tables, setTables, rooms, setRooms }) {
   const [dbMessage, setDbMessage] = useState("");
-  const [updateMessage, setUpdateMessage] = useState("");
+  const [updateState, setUpdateState] = useState({
+    state: "",
+    currentVersion: "",
+    version: "",
+    message: "",
+    percent: 0,
+    transferred: 0,
+    total: 0,
+    bytesPerSecond: 0,
+    releaseNotes: "",
+  });
   const [local, setLocal] = useState(settings);
   const [showTableModal, setShowTableModal] = useState(false);
   const [newTable, setNewTable] = useState({ name: "", section: "Main Dining", seats: 2, shape: "round" });
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [newRoom, setNewRoom] = useState({ name: "", type: "single", rate: 50000 });
 
+  useEffect(() => {
+    const unsubscribe = window.posAPI?.updates?.status?.((data) => {
+      setUpdateState((prev) => ({
+        ...prev,
+        ...data,
+      }));
+    });
+
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, []);
   useEffect(() => setLocal(settings), [settings]);
 
   const addTable = () => {
@@ -972,6 +994,40 @@ function SettingsScreen({ settings, setSettings, tables, setTables, rooms, setRo
     setRooms(rooms.filter((x) => x.id !== id));
   };
   const updateRoomRate = (id, rate) => setRooms(rooms.map((r) => (r.id === id ? { ...r, rate } : r)));
+  const checkForUpdates = async () => {
+    setUpdateState((prev) => ({
+      ...prev,
+      state: "checking",
+      message: "",
+    }));
+
+    const result = await window.posAPI?.updates?.check?.();
+
+    if (result) {
+      setUpdateState((prev) => ({
+        ...prev,
+        ...result,
+      }));
+    }
+  };
+  const downloadUpdate = async () => {
+    setUpdateState((prev) => ({
+      ...prev,
+      state: "downloading",
+      percent: 0,
+    }));
+
+    await window.posAPI?.updates?.download?.();
+  };
+
+  const installUpdate = async () => {
+    setUpdateState((prev) => ({
+      ...prev,
+      state: "installing",
+    }));
+
+    await window.posAPI?.updates?.install?.();
+  };
 
   return (
     <div className="hp-view">
@@ -982,11 +1038,155 @@ function SettingsScreen({ settings, setSettings, tables, setTables, rooms, setRo
         <div style={{display:"flex", gap:8, flexWrap:"wrap", marginTop:10}}>
           <button className="hp-btn" onClick={async () => { const r = await window.posAPI?.database?.backup?.(); if (r && !r.canceled) setDbMessage("Database backup created successfully."); }}>Back up database</button>
           <button className="hp-btn" onClick={async () => { const r = await window.posAPI?.database?.restore?.(); if (r && !r.canceled) { setDbMessage("Database restored. Restart the POS to reload all data."); } }}>Restore database</button>
-          <button className="hp-btn hp-btn-accent" onClick={async () => { const r = await window.posAPI?.updates?.check?.(); setUpdateMessage(r?.message || (r?.state === "checked" ? "Update check complete." : "Update service unavailable.")); }}>Check for updates</button>
+          <button
+            className="hp-btn hp-btn-accent"
+            onClick={checkForUpdates}
+            disabled={updateState.state === "checking" || updateState.state === "downloading" || updateState.state === "installing"}
+          >
+            {updateState.state === "checking" ? "Checking..." : "Check for updates"}
+          </button>
           <button className="hp-btn" onClick={async () => { const info = await window.posAPI?.database?.info?.(); if (info) setDbMessage(`SQLite schema v${info.schemaVersion} (supported v${info.supportedSchemaVersion}).`); }}>Database status</button>
         </div>
+        {updateState.state === "checking" && (
+          <div className="hp-muted" style={{ marginTop: 12 }}>
+            Checking for updates...
+          </div>
+        )}
+        {updateState.state === "disabled" && (
+          <div className="hp-muted" style={{ marginTop: 12 }}>
+            {updateState.message || "Update checking is unavailable."}
+          </div>
+        )}
+
+        {updateState.state === "up-to-date" && (
+          <div className="hp-muted" style={{ marginTop: 12 }}>
+            You are up to date. Version {updateState.currentVersion || "current"} is installed.
+          </div>
+        )}
+
+        {updateState.state === "available" && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>
+              Update available
+            </div>
+
+            <div className="hp-muted" style={{ marginTop: 5 }}>
+              A new version of M Generation II POS is available.
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+              <strong>Current version:</strong> {updateState.currentVersion}
+              <br />
+              <strong>New version:</strong> {updateState.version}
+            </div>
+
+            {updateState.releaseDate && (
+              <div className="hp-muted" style={{ marginTop: 5 }}>
+                Released: {new Date(updateState.releaseDate).toLocaleDateString()}
+              </div>
+            )}
+
+            {updateState.releaseNotes && (
+              <div className="hp-muted" style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>
+                {typeof updateState.releaseNotes === "string"
+                  ? updateState.releaseNotes
+                  : updateState.releaseNotes?.body || ""}
+              </div>
+            )}
+
+            <button
+              className="hp-btn hp-btn-accent"
+              style={{ marginTop: 12 }}
+              onClick={downloadUpdate}
+            >
+              Download Update
+            </button>
+          </div>
+        )}
+
+        {updateState.state === "downloading" && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontWeight: 700 }}>
+              Downloading update {updateState.version ? `v${updateState.version}` : ""}
+            </div>
+
+            <div
+              style={{
+                width: "100%",
+                height: 10,
+                background: "#ddd",
+                borderRadius: 5,
+                overflow: "hidden",
+                marginTop: 10,
+              }}
+            >
+              <div
+                style={{
+                  width: `${Math.min(100, Math.max(0, updateState.percent || 0))}%`,
+                  height: "100%",
+                  background: "#8B5E34",
+                  transition: "width 0.2s ease",
+                }}
+              />
+            </div>
+
+            <div className="hp-muted" style={{ marginTop: 6 }}>
+              {Math.round(updateState.percent || 0)}%
+            </div>
+          </div>
+        )}
+
+        {updateState.state === "downloaded" && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontWeight: 700 }}>
+              Update ready
+            </div>
+
+            <div className="hp-muted" style={{ marginTop: 5 }}>
+              Version {updateState.version} has been downloaded and is ready to install.
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button
+                className="hp-btn hp-btn-accent"
+                onClick={installUpdate}
+              >
+                Install & Restart
+              </button>
+
+              <button
+                className="hp-btn"
+                onClick={() =>
+                  setUpdateState((prev) => ({
+                    ...prev,
+                    state: "idle",
+                  }))
+                }
+              >
+                Later
+              </button>
+            </div>
+          </div>
+        )}
+
+        {updateState.state === "installing" && (
+          <div className="hp-muted" style={{ marginTop: 14 }}>
+            Installing update... The POS will restart shortly.
+          </div>
+        )}
+
+        {updateState.state === "error" && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontWeight: 700 }}>
+              Update failed
+            </div>
+
+            <div className="hp-muted" style={{ marginTop: 5 }}>
+              {updateState.message || "An unknown update error occurred."}
+            </div>
+          </div>
+        )}
         {dbMessage && <div className="hp-muted" style={{marginTop:9}}>{dbMessage}</div>}
-        {updateMessage && <div className="hp-muted" style={{marginTop:5}}>{updateMessage}</div>}
         <div className="hp-muted" style={{marginTop:8}}>Application updates replace the POS software, not the SQLite database. Database backups are kept separately.</div>
       </div>
 

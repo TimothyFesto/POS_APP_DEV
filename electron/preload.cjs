@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('posAPI', {
   },
   updates: {
     check: () => ipcRenderer.invoke('updates:check'),
+    download: () => ipcRenderer.invoke('updates:download'),
+    install: () => ipcRenderer.invoke('updates:install'),
     status: (callback) => {
       const listener = (_event, data) => callback(data);
       ipcRenderer.on('updates:status', listener);

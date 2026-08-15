@@ -19,54 +19,94 @@ function configureUpdater() {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.setFeedURL({ provider: 'github', owner: UPDATE_OWNER, repo: UPDATE_REPO, releaseType: 'release' });
-  autoUpdater.on('checking-for-update', () => sendUpdateStatus({ state: 'checking' }));
-  autoUpdater.on('update-available', (info) => sendUpdateStatus({ state: 'available', version: info.version }));
-  autoUpdater.on('update-not-available', () => sendUpdateStatus({ state: 'up-to-date' }));
-  autoUpdater.on('download-progress', (p) => sendUpdateStatus({ state: 'downloading', percent: p.percent }));
-  autoUpdater.on('update-downloaded', async (info) => {
-    sendUpdateStatus({ state: 'downloaded', version: info.version });
-    const choice = await dialog.showMessageBox({
-      type: 'info',
-      buttons: ['Restart and Install', 'Later'],
-      defaultId: 0,
-      cancelId: 1,
-      title: 'M Generation II POS Update Ready',
-      message: `Version ${info.version} has been downloaded.`,
-      detail: 'The POS will restart to install the update. Your SQLite database is stored separately and will remain in place.',
+  autoUpdater.on('checking-for-update', () => sendUpdateStatus({ state: 'checking', currentVersion: app.getVersion() }));
+  autoUpdater.on('update-available', (info) => sendUpdateStatus({ state: 'available', currentVersion: app.getVersion(), version: info.version, releaseDate: info.releaseDate || '', releaseNotes: info.releaseNotes || ''}));
+  autoUpdater.on('update-not-available', () => sendUpdateStatus({ state: 'up-to-date', currentVersion: app.getVersion() }));
+  autoUpdater.on('download-progress', (p) => sendUpdateStatus({ state: 'downloading', version: p.version || '', percent: p.percent || 0, transferred: p.transferred || 0, total: p.total || 0, bytesPerSecond: p.bytesPerSecond || 0 }));
+  autoUpdater.on('update-downloaded', (info) => {
+    sendUpdateStatus({
+      state: 'downloaded',
+      currentVersion: app.getVersion(),
+      version: info.version,
+      releaseDate: info.releaseDate || '',
+      releaseNotes: info.releaseNotes || '',
     });
-    if (choice.response === 0) autoUpdater.quitAndInstall(false, true);
   });
   autoUpdater.on('error', (error) => sendUpdateStatus({ state: 'error', message: error.message }));
 }
 
 async function checkForUpdates(interactive = false) {
   if (!autoUpdater || isDev) {
-    const message = isDev ? 'Update checking is disabled during development.' : 'Automatic updates are unavailable.';
-    sendUpdateStatus({ state: 'disabled', message });
+    const message = isDev
+      ? 'Update checking is disabled during development.'
+      : 'Automatic updates are unavailable.';
+
+    sendUpdateStatus({
+      state: 'disabled',
+      message,
+      currentVersion: app.getVersion(),
+    });
+
     return { state: 'disabled', message };
   }
+
   try {
+    sendUpdateStatus({
+      state: 'checking',
+      currentVersion: app.getVersion(),
+    });
+
     const result = await autoUpdater.checkForUpdates();
+
     if (result?.updateInfo?.version && result.updateInfo.version !== app.getVersion()) {
-      const choice = await dialog.showMessageBox({
-        type: 'info',
-        buttons: ['Download Update', 'Later'],
-        defaultId: 0,
-        cancelId: 1,
-        title: 'M Generation II POS Update',
-        message: `Version ${result.updateInfo.version} is available.`,
-        detail: 'Your POS database is stored separately and will not be replaced by the application update.',
+      const info = result.updateInfo;
+
+      sendUpdateStatus({
+        state: 'available',
+        currentVersion: app.getVersion(),
+        version: info.version,
+        releaseDate: info.releaseDate || '',
+        releaseNotes: info.releaseNotes || '',
       });
-      if (choice.response === 0) {
-        sendUpdateStatus({ state: 'downloading', percent: 0 });
-        await autoUpdater.downloadUpdate();
-      }
+
+      return {
+        state: 'available',
+        currentVersion: app.getVersion(),
+        version: info.version,
+        releaseDate: info.releaseDate || '',
+        releaseNotes: info.releaseNotes || '',
+      };
     }
-    return { state: 'checked' };
+
+    sendUpdateStatus({
+      state: 'up-to-date',
+      currentVersion: app.getVersion(),
+    });
+
+    return {
+      state: 'up-to-date',
+      currentVersion: app.getVersion(),
+    };
+
   } catch (error) {
-    sendUpdateStatus({ state: 'error', message: error.message });
-    if (interactive) await dialog.showMessageBox({ type: 'error', title: 'Update check failed', message: error.message });
-    return { state: 'error', message: error.message };
+    sendUpdateStatus({
+      state: 'error',
+      message: error.message,
+      currentVersion: app.getVersion(),
+    });
+
+    if (interactive) {
+      await dialog.showMessageBox({
+        type: 'error',
+        title: 'Update check failed',
+        message: error.message,
+      });
+    }
+
+    return {
+      state: 'error',
+      message: error.message,
+    };
   }
 }
 
@@ -117,6 +157,43 @@ ipcMain.handle('database:restore', async () => {
   return { canceled: false, path: result.filePaths[0] };
 });
 ipcMain.handle('updates:check', () => checkForUpdates(true));
+ipcMain.handle('updates:download', async () => {
+  if (!autoUpdater || isDev) {
+    return {
+      state: 'disabled',
+      message: 'Updates are unavailable during development.',
+    };
+  }
+
+  try {
+    sendUpdateStatus({
+      state: 'downloading',
+      percent: 0,
+    });
+
+    await autoUpdater.downloadUpdate();
+
+    return { state: 'downloaded' };
+  } catch (error) {
+    sendUpdateStatus({
+      state: 'error',
+      message: error.message,
+    });
+
+    return {
+      state: 'error',
+      message: error.message,
+    };
+  }
+});
+ipcMain.handle('updates:install', () => {
+  if (!autoUpdater || isDev) {
+    return { state: 'disabled', message: 'Updates are unavailable during development.' };
+  }
+
+  autoUpdater.quitAndInstall(false, true);
+  return { state: 'installing' };
+});
 
 app.whenReady().then(async () => {
   app.setAppUserModelId('com.mgeneration2.pos');
