@@ -75,7 +75,7 @@
       ],
       "icon": "build/icon.png",
       "category": "public.app-category.business",
-      "singleArchFiles": "node_modules/better-sqlite3/prebuilds/**/*.node"
+      "x64ArchFiles": "**/node_modules/better-sqlite3/prebuilds/**/*.node"
     },
     "publish": {
       "provider": "github",
