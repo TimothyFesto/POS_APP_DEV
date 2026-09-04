@@ -1,89 +1,65 @@
 {
-  "name": "m-generation-ii-pos",
-  "version": "1.0.10",
-  "description": "M Generation II Co. Ltd hotel and restaurant point-of-sale application",
-  "main": "electron/main.cjs",
+  "name": "g2-pos-desktop",
+  "version": "1.0.0",
+  "description": "G2 Guest House restaurant & accommodation POS — desktop app",
+  "main": "electron/main.js",
   "author": "M Generation II Co. Ltd",
-  "license": "UNLICENSED",
   "private": true,
   "scripts": {
-    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
     "build": "vite build",
-    "start": "electron .",
-    "dist:win": "npm run build && electron-builder --win nsis",
-    "dist:mac": "npm run build && electron-builder --mac dmg",
-    "dist:mac:universal": "npm run build && electron-builder --mac dmg zip --universal",
-    "dist": "npm run build && electron-builder"
+    "predist": "npm run build",
+    "dist:win": "electron-builder --win nsis",
+    "dist:mac": "electron-builder --mac dmg zip --universal",
+    "dist": "npm run build && electron-builder -mw",
+    "release:win": "npm run build && electron-builder --win nsis --publish always",
+    "release:mac": "npm run build && electron-builder --mac dmg zip --universal --publish always",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
+    "better-sqlite3": "^13.0.3",
     "electron-updater": "^6.8.9",
-    "lucide-react": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "sql.js": "latest"
+    "lucide-react": "^0.383.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "concurrently": "latest",
-    "electron": "latest",
-    "electron-builder": "latest",
-    "vite": "latest",
-    "wait-on": "latest"
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.6",
+    "vite": "^5.4.0",
+    "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.mgeneration2.pos",
-    "productName": "M Generation II POS",
-    "artifactName": "M-Generation-II-POS-${version}.${ext}",
+    "appId": "com.mgenerationii.g2pos",
+    "productName": "G2 Guest House POS",
+    "artifactName": "${productName}-${version}.${ext}",
     "directories": {
-      "output": "release",
-      "buildResources": "build"
+      "buildResources": "build",
+      "output": "release"
     },
     "files": [
       "dist/**/*",
-      "electron/**/*",
-      "build/app-icon.png",
-      "build/app-icon.ico",
-      "package.json",
-      "node_modules/sql.js/dist/**/*"
+      "electron/**/*"
     ],
-    "asar": true,
     "win": {
       "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
+        { "target": "nsis", "arch": ["x64"] }
       ],
-      "icon": "build/app-icon.ico"
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "M Generation II POS"
+      "allowToChangeInstallationDirectory": true
     },
     "mac": {
       "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "universal"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "universal"
-          ]
-        }
+        { "target": "dmg", "arch": ["universal"] },
+        { "target": "zip", "arch": ["universal"] }
       ],
-      "icon": "build/app-icon.png",
-      "category": "public.app-category.business",
-      "darkModeSupport": true
+      "icon": "build/icon.png",
+      "category": "public.app-category.business"
     },
     "publish": {
       "provider": "github",

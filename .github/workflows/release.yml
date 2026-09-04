@@ -1,5 +1,4 @@
-
-name: Build and Release M Generation II POS
+name: Build and Release G2 Guest House POS
 
 on:
   push:
@@ -21,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -29,7 +28,6 @@ jobs:
 
       - name: Build macOS Universal
         run: npm run build && npx electron-builder --mac dmg zip --universal --publish never
-
 
       - name: Upload macOS build
         uses: actions/upload-artifact@v4
@@ -48,7 +46,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -56,7 +54,6 @@ jobs:
 
       - name: Build Windows
         run: npm run build && npx electron-builder --win nsis --publish never
-
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
@@ -94,13 +91,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: M Generation II POS ${{ github.ref_name }}
+          name: G2 Guest House POS ${{ github.ref_name }}
           body: |
-            M Generation II POS ${{ github.ref_name }}
+            G2 Guest House POS ${{ github.ref_name }}
 
             Automatic release containing:
-            - macOS Universal installer
-            - Windows installer
+            - macOS Universal installer (.dmg) and update package (.zip)
+            - Windows installer (.exe)
             - Electron auto-update metadata
           draft: false
           prerelease: false
@@ -110,7 +107,7 @@ jobs:
             release/*.zip
             release/*.exe
             release/*.blockmap
-            release/latest-mac.yml
             release/latest.yml
+            release/latest-mac.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

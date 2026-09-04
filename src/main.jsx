@@ -1,8 +1,8 @@
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import HotelPOS from './HotelPOS.jsx';
+import React from "react";
+import ReactDOM from "react-dom/client";
+import HotelPOS from "./App.jsx";
 
-createRoot(document.getElementById('root')).render(
+ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <HotelPOS />
   </React.StrictMode>
