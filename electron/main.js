@@ -1450,13 +1450,14 @@ ipcMain.handle("ledger:listRange", (_e, { from, to, kind }) => {
 
 ipcMain.handle("ledger:summary", (_e, { from, to }) => {
   const rows = db.prepare("SELECT kind, payment_method, total FROM transactions WHERE closed_at BETWEEN ? AND ? AND status = 'paid'").all(from, to);
-  const summary = { restaurantTotal: 0, roomTotal: 0, conferenceTotal: 0, cash: 0, card: 0, roomCharge: 0, count: rows.length };
+  const summary = { restaurantTotal: 0, roomTotal: 0, conferenceTotal: 0, cash: 0, card: 0, mobileMoney: 0, roomCharge: 0, count: rows.length };
   for (const r of rows) {
     if (r.kind === "restaurant") summary.restaurantTotal += r.total;
     else if (r.kind === "accommodation") summary.roomTotal += r.total;
     else if (r.kind === "conference") summary.conferenceTotal += r.total;
     if (r.payment_method === "cash") summary.cash += r.total;
     else if (r.payment_method === "card") summary.card += r.total;
+    else if (r.payment_method === "mobile_money") summary.mobileMoney += r.total;
     else if (r.payment_method === "room") summary.roomCharge += r.total;
   }
   return summary;

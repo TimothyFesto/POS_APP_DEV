@@ -9,7 +9,7 @@ import {
   TrendingUp, AlertTriangle, RotateCcw, FolderOpen, UserPlus, Lock,
   Mail, Briefcase, Download, CalendarPlus, CircleCheck, Circle,
   Presentation, Zap, Wrench, LayoutDashboard, Crown, Eye, EyeOff, Building2, Code, GripVertical,
-  Sun, Moon, Monitor,
+  Sun, Moon, Monitor, Smartphone,
 } from "lucide-react";
 import loginBg from "./assets/login-bg.png";
 
@@ -206,6 +206,16 @@ const appsForRole = (role, accessMap = ROLE_ACCESS, extraTileIds = []) => {
 const uid = (p) => `${p}-${Math.random().toString(36).slice(2, 9)}`;
 const money = (n, cur, decimals = 2) =>
   `${cur}${n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+
+// Payment methods are stored as short lowercase codes ("cash", "card",
+// "mobile_money", "room") since those are also what backend reports
+// group by — this is the one place that turns a code into what someone
+// actually reads on a receipt or in a report.
+const PAYMENT_METHOD_LABELS = { cash: "cash", card: "card", mobile_money: "Mobile Money", transfer: "bank transfer" };
+const formatPaymentMethod = (pm, roomCharged) => {
+  if (pm === "room") return `room charge${roomCharged ? ` (room ${roomCharged})` : ""}`;
+  return PAYMENT_METHOD_LABELS[pm] || pm || "—";
+};
 
 // Rounds a monetary value to whole cents (2dp) regardless of display
 // decimals, so repeated addition/multiplication (line totals, tax,
@@ -549,7 +559,7 @@ function PrintReceipt({ data, settings, letterheadPath }) {
       {showPrices && <div className="hp-receipt-line"><span>Service</span><span>{money(data.service, settings.currency, settings.decimals)}</span></div>}
       {showPrices && <div className="hp-receipt-line hp-receipt-total"><span>Total</span><span>{money(data.total, settings.currency, settings.decimals)}</span></div>}
       <div className="hp-receipt-rule" />
-      {showPrices && <div className="hp-receipt-meta">Paid via {data.paymentMethod === "room" ? `room charge${data.roomCharged ? ` (room ${data.roomCharged})` : ""}` : data.paymentMethod}</div>}
+      {showPrices && <div className="hp-receipt-meta">Paid via {formatPaymentMethod(data.paymentMethod, data.roomCharged)}</div>}
       <div className="hp-receipt-meta">Reference #{data.receiptNo}</div>
       {data.docType === "Delivery Note" && (
         <div className="hp-receipt-signature">
@@ -922,7 +932,7 @@ function smoothPath(points) {
 let chartIdCounter = 0;
 const nextChartId = () => `chart-${++chartIdCounter}-${Math.random().toString(36).slice(2, 7)}`;
 
-function LineChartSVG({ points, width = 640, height = 200, color = "var(--accent)" }) {
+function LineChartSVG({ points, width = 640, height = 200, color = "var(--accent)", xLabel, yLabel }) {
   const gradientIdRef = useRef(nextChartId());
   if (!points.length) return <div className="hp-empty">No data yet.</div>;
   const max = Math.max(1, ...points.map((p) => p.value));
@@ -939,31 +949,37 @@ function LineChartSVG({ points, width = 640, height = 200, color = "var(--accent
 
   return (
     <div className="hp-chart-card">
-      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "auto", display: "block" }}>
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.32" />
-            <stop offset="100%" stopColor={color} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {gridVals.map((v, i) => (
-          <g key={i}>
-            <line x1={padL} x2={width - padR} y1={scaleY(v)} y2={scaleY(v)} stroke="var(--border)" strokeWidth="1" strokeDasharray={i === 0 ? "0" : "3,3"} />
-            <text x={padL - 8} y={scaleY(v) + 3} textAnchor="end" fontSize="9.5" fill="var(--text-muted)">{formatCompact(v)}</text>
-          </g>
-        ))}
-        <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
-        <path d={linePath} fill="none" stroke={color} strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
-        {coords.map((c, i) => <circle key={i} cx={c.x} cy={c.y} r="2.4" fill={color} stroke="var(--panel)" strokeWidth="1" />)}
-      </svg>
-      <div style={{ display: "flex", justifyContent: "space-between", paddingLeft: padL, paddingRight: padR, fontSize: 9.5, color: "var(--text-muted)", marginTop: 4 }}>
-        {points.filter((_, i) => points.length <= 7 || i % Math.ceil(points.length / 7) === 0).map((p, i) => <span key={i}>{p.label}</span>)}
+      <div style={{ display: "flex", alignItems: "stretch", gap: 4 }}>
+        {yLabel && <div className="hp-chart-axis-label hp-chart-axis-label-y">{yLabel}</div>}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "auto", display: "block" }}>
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity="0.32" />
+                <stop offset="100%" stopColor={color} stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {gridVals.map((v, i) => (
+              <g key={i}>
+                <line x1={padL} x2={width - padR} y1={scaleY(v)} y2={scaleY(v)} stroke="var(--border)" strokeWidth="1" strokeDasharray={i === 0 ? "0" : "3,3"} />
+                <text x={padL - 8} y={scaleY(v) + 3} textAnchor="end" fontSize="9.5" fill="var(--text-muted)">{formatCompact(v)}</text>
+              </g>
+            ))}
+            <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
+            <path d={linePath} fill="none" stroke={color} strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+            {coords.map((c, i) => <circle key={i} cx={c.x} cy={c.y} r="2.4" fill={color} stroke="var(--panel)" strokeWidth="1" />)}
+          </svg>
+          <div style={{ display: "flex", justifyContent: "space-between", paddingLeft: padL, paddingRight: padR, fontSize: 9.5, color: "var(--text-muted)", marginTop: 4 }}>
+            {points.filter((_, i) => points.length <= 7 || i % Math.ceil(points.length / 7) === 0).map((p, i) => <span key={i}>{p.label}</span>)}
+          </div>
+        </div>
       </div>
+      {xLabel && <div className="hp-chart-axis-label hp-chart-axis-label-x" style={{ marginLeft: padL }}>{xLabel}</div>}
     </div>
   );
 }
 
-function BarChartSVG({ bars, width = 320, height = 200 }) {
+function BarChartSVG({ bars, width = 320, height = 200, xLabel, yLabel, minHeight }) {
   if (!bars.length) return <div className="hp-empty">No data yet.</div>;
   const padL = 42, padR = 8, padT = 12, padB = 8;
   const plotW = width - padL - padR, plotH = height - padT - padB;
@@ -974,25 +990,37 @@ function BarChartSVG({ bars, width = 320, height = 200 }) {
   const scaleY = (v) => padT + plotH * (1 - v / max);
 
   return (
-    <div className="hp-chart-card">
-      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "auto" }}>
-        {gridVals.map((v, i) => (
-          <g key={i}>
-            <line x1={padL} x2={width - padR} y1={scaleY(v)} y2={scaleY(v)} stroke="var(--border)" strokeWidth="1" strokeDasharray={i === 0 ? "0" : "3,3"} />
-            <text x={padL - 8} y={scaleY(v) + 3} textAnchor="end" fontSize="9.5" fill="var(--text-muted)">{formatCompact(v)}</text>
-          </g>
-        ))}
-        {bars.map((b, i) => {
-          const h = plotH * (b.value / max);
-          const x = padL + i * gap + (gap - barWidth) / 2;
-          return <rect key={b.label} x={x} y={padT + plotH - h} width={barWidth} height={Math.max(1, h)} rx="4" fill={b.color} />;
-        })}
-      </svg>
-      <div style={{ display: "flex", paddingLeft: padL, paddingRight: padR, marginTop: 4 }}>
-        {bars.map((b) => (
-          <span key={b.label} className="hp-truncate" style={{ flex: 1, textAlign: "center", fontSize: 10.5, color: "var(--text-muted)" }}>{b.label}</span>
-        ))}
+    <div className="hp-chart-card" style={minHeight ? { minHeight, display: "flex", flexDirection: "column", justifyContent: "center" } : undefined}>
+      <div style={{ display: "flex", alignItems: "stretch", gap: 4 }}>
+        {yLabel && <div className="hp-chart-axis-label hp-chart-axis-label-y">{yLabel}</div>}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "auto" }}>
+            {gridVals.map((v, i) => (
+              <g key={i}>
+                <line x1={padL} x2={width - padR} y1={scaleY(v)} y2={scaleY(v)} stroke="var(--border)" strokeWidth="1" strokeDasharray={i === 0 ? "0" : "3,3"} />
+                <text x={padL - 8} y={scaleY(v) + 3} textAnchor="end" fontSize="9.5" fill="var(--text-muted)">{formatCompact(v)}</text>
+              </g>
+            ))}
+            {bars.map((b, i) => {
+              // A genuinely nonzero value that's just small relative to the
+              // tallest bar could round down to a 1px sliver — effectively
+              // invisible rather than a bar someone can actually see and
+              // read. Floor it at a height that's still clearly a bar, but
+              // only for values that aren't truly zero.
+              const rawH = plotH * (b.value / max);
+              const h = b.value > 0 ? Math.max(4, rawH) : 0;
+              const x = padL + i * gap + (gap - barWidth) / 2;
+              return <rect key={b.label} x={x} y={padT + plotH - h} width={barWidth} height={h} rx="4" fill={b.color} />;
+            })}
+          </svg>
+          <div style={{ display: "flex", paddingLeft: padL, paddingRight: padR, marginTop: 4 }}>
+            {bars.map((b) => (
+              <span key={b.label} className="hp-truncate" style={{ flex: 1, textAlign: "center", fontSize: 10.5, color: "var(--text-muted)" }}>{b.label}</span>
+            ))}
+          </div>
+        </div>
       </div>
+      {xLabel && <div className="hp-chart-axis-label hp-chart-axis-label-x" style={{ marginLeft: padL }}>{xLabel}</div>}
       <div style={{ display: "flex", gap: 14, marginTop: 8, flexWrap: "wrap", paddingLeft: padL }}>
         {bars.map((b) => (
           <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11 }}>
@@ -1288,6 +1316,7 @@ function ReportsView({ settings, stays, rooms, currentUser, goHome, showToast, p
               <div className="hp-report-card"><Presentation size={16} /><div className="hp-report-value">{money(summary.conferenceTotal, settings.currency, settings.decimals)}</div><div className="hp-report-label">Conference revenue</div></div>
               <div className="hp-report-card"><Banknote size={16} /><div className="hp-report-value">{money(summary.cash, settings.currency, settings.decimals)}</div><div className="hp-report-label">Cash</div></div>
               <div className="hp-report-card"><CreditCard size={16} /><div className="hp-report-value">{money(summary.card, settings.currency, settings.decimals)}</div><div className="hp-report-label">Card</div></div>
+              <div className="hp-report-card"><Smartphone size={16} /><div className="hp-report-value">{money(summary.mobileMoney, settings.currency, settings.decimals)}</div><div className="hp-report-label">Mobile Money</div></div>
               <div className="hp-report-card"><DoorOpen size={16} /><div className="hp-report-value">{money(summary.roomCharge, settings.currency, settings.decimals)}</div><div className="hp-report-label">Charged to room</div></div>
             </div>
           )}
@@ -4314,9 +4343,10 @@ function ConferenceView({ settings, currentUser, goHome, showToast, printDocumen
           <div className="hp-divider" />
           <div className="hp-total-row hp-total-grand"><span>Total due</span><span>{money(billingBooking.amount, settings.currency, settings.decimals)}</span></div>
         </div>
-        <div className="hp-pay-methods" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+        <div className="hp-pay-methods">
           <button className={`hp-pay-btn ${billingMethod === "cash" ? "active" : ""}`} onClick={() => setBillingMethod("cash")}><Banknote size={18} /> Cash</button>
           <button className={`hp-pay-btn ${billingMethod === "card" ? "active" : ""}`} onClick={() => setBillingMethod("card")}><CreditCard size={18} /> Card</button>
+          <button className={`hp-pay-btn ${billingMethod === "mobile_money" ? "active" : ""}`} onClick={() => setBillingMethod("mobile_money")}><Smartphone size={18} /> Mobile Money</button>
         </div>
         <div className="hp-ticket-actions">
           <button className="hp-btn hp-btn-ghost" onClick={() => { setBillingBooking(null); setBillingMethod(null); }}><ArrowLeftRight size={15} /> Back</button>
@@ -4633,6 +4663,7 @@ function RunningCostsView({ settings, currentUser, goHome, showToast, exportRepo
           <div className="hp-cat-tabs">
             <button className={`hp-cat-tab ${form.paymentMethod === "cash" ? "active" : ""}`} onClick={() => setForm({ ...form, paymentMethod: "cash" })}>Cash</button>
             <button className={`hp-cat-tab ${form.paymentMethod === "card" ? "active" : ""}`} onClick={() => setForm({ ...form, paymentMethod: "card" })}>Card</button>
+            <button className={`hp-cat-tab ${form.paymentMethod === "mobile_money" ? "active" : ""}`} onClick={() => setForm({ ...form, paymentMethod: "mobile_money" })}>Mobile Money</button>
             <button className={`hp-cat-tab ${form.paymentMethod === "transfer" ? "active" : ""}`} onClick={() => setForm({ ...form, paymentMethod: "transfer" })}>Transfer</button>
           </div>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, margin: "10px 0" }}>
@@ -4818,22 +4849,22 @@ function DashboardView({ settings, currentUser, goHome, showToast }) {
 
       <div className="hp-floor-section">
         <div className="hp-section-label">{GRANULARITY_LABELS[granularity]} revenue trend — overall business</div>
-        {loading ? <div className="hp-empty">Loading…</div> : <LineChartSVG points={trendPoints} />}
+        {loading ? <div className="hp-empty">Loading…</div> : <LineChartSVG points={trendPoints} xLabel={GRANULARITY_LABELS[granularity]} yLabel={`Revenue (${settings.currency.trim()})`} />}
       </div>
 
-      <div className="hp-floor-section" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 24 }}>
+      <div className="hp-floor-section" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "stretch" }}>
         <div>
           <div className="hp-section-label">Revenue by section</div>
-          <BarChartSVG bars={sectionBars} />
+          <BarChartSVG bars={sectionBars} xLabel="Section" yLabel={`Revenue (${settings.currency.trim()})`} minHeight={280} />
         </div>
         <div>
           <div className="hp-section-label">Revenue position</div>
-          <div className="hp-chart-card" style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <PieChartSVG slices={sectionBars} size={120} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0 }}>
+          <div className="hp-chart-card" style={{ display: "flex", alignItems: "center", gap: 20, minHeight: 280 }}>
+            <PieChartSVG slices={sectionBars} size={170} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
               {sectionBars.map((s) => (
-                <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: 2, background: s.color, display: "inline-block", flexShrink: 0 }} />
+                <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 2, background: s.color, display: "inline-block", flexShrink: 0 }} />
                   <span className="hp-muted hp-truncate">{s.label} — {money(s.value, settings.currency, settings.decimals)}</span>
                 </div>
               ))}
@@ -5365,6 +5396,7 @@ function BillingScreen({ order, table, settings, checkedInStays, backToOrder, cl
       <div className="hp-pay-methods">
         <button className={`hp-pay-btn ${method === "cash" ? "active" : ""}`} onClick={() => setMethod("cash")}><Banknote size={18} /> Cash</button>
         <button className={`hp-pay-btn ${method === "card" ? "active" : ""}`} onClick={() => setMethod("card")}><CreditCard size={18} /> Card</button>
+        <button className={`hp-pay-btn ${method === "mobile_money" ? "active" : ""}`} onClick={() => setMethod("mobile_money")}><Smartphone size={18} /> Mobile Money</button>
         <button className={`hp-pay-btn ${method === "room" ? "active" : ""}`} onClick={() => setMethod("room")}><DoorOpen size={18} /> Charge to room</button>
       </div>
 
@@ -5520,7 +5552,7 @@ function HistoryScreen({ orders, stays, settings, onPrint }) {
                               )}
                           <div className="hp-divider" />
                           <div className="hp-total-row hp-total-grand"><span>Total</span><span>{money(r.total, settings.currency, settings.decimals)}</span></div>
-                          {(r.record.paymentMethod || r.record.payment_method) && <div className="hp-history-meta">Paid via {r.record.paymentMethod || r.record.payment_method}{r.record.roomCharged ? ` · room ${r.record.roomCharged}` : ""}</div>}
+                          {(r.record.paymentMethod || r.record.payment_method) && <div className="hp-history-meta">Paid via {formatPaymentMethod(r.record.paymentMethod || r.record.payment_method, r.record.roomCharged)}</div>}
                           {r.status !== "void" && (
                             <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                               <button className="hp-btn hp-btn-ghost" onClick={(e) => { e.stopPropagation(); onPrint(r.receiptFn(), "Receipt"); }}>
@@ -5770,9 +5802,10 @@ function RoomFolio({ stay, room, settings, goBack, addNote, checkOutStay, voidSt
         </div>
       ) : (
         <>
-          <div className="hp-pay-methods" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+          <div className="hp-pay-methods">
             <button className={`hp-pay-btn ${method === "cash" ? "active" : ""}`} onClick={() => setMethod("cash")}><Banknote size={18} /> Cash</button>
             <button className={`hp-pay-btn ${method === "card" ? "active" : ""}`} onClick={() => setMethod("card")}><CreditCard size={18} /> Card</button>
+            <button className={`hp-pay-btn ${method === "mobile_money" ? "active" : ""}`} onClick={() => setMethod("mobile_money")}><Smartphone size={18} /> Mobile Money</button>
           </div>
           <div className="hp-ticket-actions">
             <button className="hp-btn hp-btn-ghost" onClick={() => setCheckingOut(false)}><ArrowLeftRight size={15} /> Back</button>
@@ -6976,6 +7009,9 @@ export default function HotelPOS() {
         .hp-report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
 
         .hp-chart-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 14px 12px; }
+        .hp-chart-axis-label { font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+        .hp-chart-axis-label-y { writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding-right: 2px; }
+        .hp-chart-axis-label-x { text-align: center; margin-top: 6px; }
 
         .hp-data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
         .hp-data-table th { text-align: right; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); font-weight: 700; padding: 6px 10px; border-bottom: 1px solid var(--border); }
